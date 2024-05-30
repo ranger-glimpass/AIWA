@@ -19,11 +19,26 @@ const client = twilio(
 // Path to the JSON file where chat logs will be stored
 const chatLogsPath = path.join(__dirname, "chatLogs.json");
 
+// Initialize the JSON file if it doesn't exist
+const initializeChatLogs = () => {
+  if (!fs.existsSync(chatLogsPath)) {
+    fs.writeFileSync(chatLogsPath, JSON.stringify({}));
+  }
+};
+
+// Call the initialize function at the start
+initializeChatLogs();
+
 // Function to read chat logs
 const readChatLogs = () => {
   if (fs.existsSync(chatLogsPath)) {
-    const data = fs.readFileSync(chatLogsPath);
-    return JSON.parse(data);
+    const data = fs.readFileSync(chatLogsPath, 'utf8');
+    try {
+      return JSON.parse(data);
+    } catch (error) {
+      console.error("Error parsing JSON data:", error);
+      return {};
+    }
   }
   return {};
 };
