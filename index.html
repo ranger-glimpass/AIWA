@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatsApp Chat Logs</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .chat-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        background-color: #f9f9f9;
+      }
+      .message {
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+      }
+      .user-message {
+        background-color: #e1ffc7;
+      }
+      .bot-message {
+        background-color: #d1e7ff;
+        text-align: right;
+      }
+      .timestamp {
+        font-size: 0.8em;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <h2>WhatsApp Chat Logs</h2>
+      <div id="chat-logs"></div>
+    </div>
+
+    <script>
+      async function loadChatLogs() {
+        const response = await fetch("/chat-logs");
+        const logs = await response.json();
+
+        const chatLogsDiv = document.getElementById("chat-logs");
+        chatLogsDiv.innerHTML = "";
+
+        for (const [user, messages] of Object.entries(logs)) {
+          const userHeader = document.createElement("h3");
+          userHeader.textContent = `Chat with ${user}`;
+          chatLogsDiv.appendChild(userHeader);
+
+          messages.forEach((message) => {
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message");
+            messageDiv.classList.add(
+              message.from === "bot" ? "bot-message" : "user-message",
+            );
+            messageDiv.innerHTML = `<div>${message.message}</div><div class="timestamp">${message.timestamp}</div>`;
+            chatLogsDiv.appendChild(messageDiv);
+          });
+        }
+      }
+
+      loadChatLogs();
+    </script>
+  </body>
+</html>
