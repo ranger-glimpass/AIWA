@@ -71,18 +71,6 @@ app.post("/webhook", async (req, res) => {
     chatLogs[from] = [];
   }
 
-  // Check if the session is within the 24-hour window
-  let sessionOpen = false;
-  const lastMessage = chatLogs[from].slice(-1)[0];
-  if (lastMessage) {
-    const lastMessageTime = new Date(lastMessage.timestamp);
-    const timeDifference = new Date(currentTime) - lastMessageTime;
-    const hoursDifference = timeDifference / (1000 * 60 * 60);
-    if (hoursDifference < 24) {
-      sessionOpen = true;
-    }
-  }
-
   // Append the new message to the chat log for this user
   chatLogs[from].push({
     from,
@@ -90,72 +78,55 @@ app.post("/webhook", async (req, res) => {
     timestamp: currentTime,
   });
 
-  if (!sessionOpen) {
-    // Inform the user about the session window
-    const sessionMessage =
-      "A new session has started. You can chat with us for the next 24 hours.";
+  try {
+    console.log("Sending message to OpenAI...");
+    const openaiResponse = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: incomingMessage }],
+        max_tokens: 150,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      },
+    );
+
+    console.log("Received response from OpenAI");
+
+    const responseMessage =
+      openaiResponse.data.choices[0].message.content.trim();
+    console.log(`Response from OpenAI: ${responseMessage}`);
+
+    console.log("Sending response back to WhatsApp...");
     await client.messages.create({
-      body: sessionMessage,
-      from: "whatsapp:+917499988012", // Your Twilio sandbox number
+      body: responseMessage,
+      from: "whatsapp:+917499988012",
       to: from,
     });
-    console.log("Session message sent to WhatsApp");
 
-    // Update the session status
-    sessionOpen = true;
-  }
+    console.log("Message sent to WhatsApp");
 
-  if (sessionOpen) {
-    try {
-      console.log("Sending message to OpenAI...");
-      const openaiResponse = await axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-3.5-turbo",
-          messages: [{ role: "user", content: incomingMessage }],
-          max_tokens: 150,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-        },
-      );
+    chatLogs[from].push({
+      from: "bot",
+      message: responseMessage,
+      timestamp: currentTime,
+    });
 
-      console.log("Received response from OpenAI");
+    writeChatLogs(chatLogs);
 
-      const responseMessage =
-        openaiResponse.data.choices[0].message.content.trim();
-      console.log(`Response from OpenAI: ${responseMessage}`);
-
-      console.log("Sending response back to WhatsApp...");
-      await client.messages.create({
-        body: responseMessage,
-        from: "whatsapp:+917499988012",
-        to: from,
-      });
-
-      console.log("Message sent to WhatsApp");
-
-      chatLogs[from].push({
-        from: "bot",
-        message: responseMessage,
-        timestamp: currentTime,
-      });
-
-      writeChatLogs(chatLogs);
-
-      res.status(200).send("Message processed and sent successfully");
-    } catch (error) {
-      if (error.response) {
-        console.error("Error response from OpenAI:", error.response.data);
-      } else if (error.request) {
-        console.error("No response received from OpenAI:", error.request);
-      } else {
-        console.error("Error in setting up OpenAI request:", error.message);
-      }
-      res.status(500).send("Error processing message");
+    res.status(200).send("Message processed and sent successfully");
+  } catch (error) {
+    if (error.response) {
+      console.error("Error response from OpenAI:", error.response.data);
+    } else if (error.request) {
+      console.error("No response received from OpenAI:", error.request);
+    } else {
+      console.error("Error in setting up OpenAI request:", error.message);
     }
+    res.status(500).send("Error processing message");
   }
 });
 
